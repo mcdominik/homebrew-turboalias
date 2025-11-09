@@ -1,4 +1,4 @@
-class Turboalias < Formula
+class HomebrewTurboalias < Formula
   include Language::Python::Virtualenv
 
   desc "Fast shell alias management tool"
