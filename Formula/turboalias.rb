@@ -3,8 +3,8 @@ class Turboalias < Formula
 
   desc "Fast shell alias management tool"
   homepage "https://github.com/mcdominik/turboalias"
-  url "https://files.pythonhosted.org/packages/source/t/turboalias/turboalias-0.0.1.tar.gz"
-  sha256 "8b5a5dd251f96ab5b6dfc7930660bcdfa5ad0dd6a3efd0c6b29e61c2fe075db0"
+  url "https://files.pythonhosted.org/packages/source/t/turboalias/turboalias-0.0.2.tar.gz"
+  sha256 "cc27b80b6250fd2d1e548a1f9e491ff5656c6db0a85585bf2cc326ae457dee0c"
   license "MIT"
 
   depends_on "python@3.12"
