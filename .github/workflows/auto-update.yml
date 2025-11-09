@@ -1,0 +1,89 @@
+name: Auto-update Formula from PyPI
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check for new PyPI version
+        id: check_version
+        run: |
+          # Get latest version from PyPI
+          LATEST_VERSION=$(curl -s https://pypi.org/pypi/turboalias/json | python3 -c "import sys, json; print(json.load(sys.stdin)['info']['version'])")
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          
+          # Get current version from formula
+          CURRENT_VERSION=$(grep -oP 'turboalias-\K[0-9.]+' Formula/turboalias.rb | head -1)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          echo "Latest PyPI version: $LATEST_VERSION"
+          echo "Current formula version: $CURRENT_VERSION"
+          
+          if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "New version available!"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Formula is up to date"
+          fi
+
+      - name: Download and compute SHA256
+        if: steps.check_version.outputs.needs_update == 'true'
+        id: compute_sha
+        run: |
+          VERSION=${{ steps.check_version.outputs.latest_version }}
+          URL="https://files.pythonhosted.org/packages/source/t/turboalias/turboalias-${VERSION}.tar.gz"
+          
+          # Download the file
+          curl -L -o turboalias.tar.gz "$URL"
+          
+          # Compute SHA256
+          SHA256=$(sha256sum turboalias.tar.gz | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+          
+          # Cleanup
+          rm turboalias.tar.gz
+
+      - name: Update formula
+        if: steps.check_version.outputs.needs_update == 'true'
+        run: |
+          VERSION=${{ steps.check_version.outputs.latest_version }}
+          SHA256=${{ steps.compute_sha.outputs.sha256 }}
+          URL=${{ steps.compute_sha.outputs.url }}
+          
+          # Update the formula file
+          sed -i "s|url \".*\"|url \"$URL\"|" Formula/turboalias.rb
+          sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|" Formula/turboalias.rb
+          
+          echo "Formula updated to version $VERSION"
+
+      - name: Create Pull Request
+        if: steps.check_version.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update turboalias to ${{ steps.check_version.outputs.latest_version }}"
+          title: "Update turboalias to ${{ steps.check_version.outputs.latest_version }}"
+          body: |
+            Auto-update triggered by new PyPI release.
+            
+            - **Old version**: ${{ steps.check_version.outputs.current_version }}
+            - **New version**: ${{ steps.check_version.outputs.latest_version }}
+            - **PyPI URL**: https://pypi.org/project/turboalias/${{ steps.check_version.outputs.latest_version }}/
+          branch: auto-update-${{ steps.check_version.outputs.latest_version }}
+          delete-branch: true
