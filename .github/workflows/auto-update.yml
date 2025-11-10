@@ -2,8 +2,8 @@ name: Auto-update Formula from PyPI
 
 on:
   schedule:
-    # Run every 6 hours
-    - cron: "0 */6 * * *"
+    # Run once a week on Saturday at noon UTC
+    - cron: "0 12 * * 6"
   workflow_dispatch: # Allow manual trigger
 
 permissions:
